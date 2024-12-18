@@ -447,41 +447,60 @@ def get_weighted_text_embeddings_sdxl(
     )
         
     # get prompt embeddings one by one is not working. 
+    torch.cuda.synchronize()
     for i in range(len(prompt_token_groups)):
         # get positive prompt embeddings with weights
         token_tensor = torch.tensor(
             [prompt_token_groups[i]]
             ,dtype = torch.long, device = pipe.device
         )
+        torch.cuda.synchronize()
         weight_tensor = torch.tensor(
             prompt_weight_groups[i]
             , dtype     = torch.float16
             , device    = pipe.device
         )
+        torch.cuda.synchronize()
         
         token_tensor_2 = torch.tensor(
             [prompt_token_groups_2[i]]
             ,dtype = torch.long, device = pipe.device
         )
+        torch.cuda.synchronize()
         
         # use first text encoder
         prompt_embeds_1 = pipe.text_encoder(
             token_tensor.to(pipe.device)
             , output_hidden_states = True
         )
+        torch.cuda.synchronize()
         prompt_embeds_1_hidden_states = prompt_embeds_1.hidden_states[-2]
+        torch.cuda.synchronize()
 
         # use second text encoder
+        torch.cuda.synchronize()
         prompt_embeds_2 = pipe.text_encoder_2(
             token_tensor_2.to(pipe.device)
             , output_hidden_states = True
         )
+        torch.cuda.synchronize()
         prompt_embeds_2_hidden_states = prompt_embeds_2.hidden_states[-2]
+        torch.cuda.synchronize()
         pooled_prompt_embeds = prompt_embeds_2[0]
+        torch.cuda.synchronize()
 
         prompt_embeds_list = [prompt_embeds_1_hidden_states, prompt_embeds_2_hidden_states]
+        torch.cuda.synchronize()
         token_embedding = torch.concat(prompt_embeds_list, dim=-1).squeeze(0).to(pipe.device)
+        torch.cuda.synchronize()
         
+        print("token_embedding.shape:", token_embedding.shape)
+        print("weight_tensor.shape:", weight_tensor.shape)
+        for j in range(len(weight_tensor)):
+            # Just to confirm:
+            if j >= token_embedding.size(0):
+                print(f"Index {j} out of range for token_embedding length {token_embedding.size(0)}")
+
         for j in range(len(weight_tensor)):
             if weight_tensor[j] != 1.0:
                 #ow = weight_tensor[j] - 1
